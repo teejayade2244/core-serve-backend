@@ -225,6 +225,7 @@ const createUser = async (req, res, next) => {
                 statePostedTo: randomCamp.state,
                 OrientationCamp: randomCamp.camp,
                 CallUpNumber: `NYSC/DEMO/${generateRandomNumber()}`,
+                StateCode: `${randomCamp.id}/${generateRandomNumber()}`,
             } // Add camp and statePostedTo to the user data
             const registerNewUser = await User.create(newUser)
             res.status(201).json({
@@ -447,29 +448,17 @@ const getallUser = asyncHandler(async (req, res) => {
     }
 })
 
-// const updateUser = asyncHandler(async (req, res) => {
-//     const { _id } = req.user
-//     validateMongoDbId(_id)
-
-//     try {
-//         const updatedUser = await User.findByIdAndUpdate(_id, req.body, {
-//             new: true,
-//         })
-//         res.json(updatedUser)
-//     } catch (error) {
-//         throw new Error(error)
-//     }
-// })
 const updateUser = asyncHandler(async (req, res) => {
     const { id } = req.params
     const updates = req.body
 
-    User.findByIdAndUpdate(id, updates)
+    User.findByIdAndUpdate(id, updates, { new: true })
         .then(() =>
             res
                 .status(200)
                 .json({ message: "User details updated successfully" })
         )
+
         .catch((err) =>
             res
                 .status(500)

@@ -41,6 +41,10 @@ var userSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
+        StateCode: {
+            type: String,
+            required: true,
+        },
         address: {
             type: String,
             required: true,
