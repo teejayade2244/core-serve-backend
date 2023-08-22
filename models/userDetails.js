@@ -54,6 +54,10 @@ var userSchema = new mongoose.Schema(
             required: true,
             description: "The address of the person",
         },
+        img: {
+            data: Buffer,
+            contentType: String,
+        },
         course: {
             type: String,
             required: true,

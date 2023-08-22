@@ -580,7 +580,7 @@ const forgotPasswordToken = asyncHandler(async (req, res) => {
         <h1 class="header">Password Reset</h1>
         <p class="message">You are receiving this email because a password reset request was made for your account.</p>
         <p class="message">Please click the button below to reset your password:</p>
-        <a class="btn" href='http://localhost:5001/reset-password/${token}'>Reset Password</a>
+        <a class="btn" href='nysc-clone-project.netlify.app/reset-password/${token}'>Reset Password</a>
         <p class="message">If you did not request a password reset, no further action is required.</p>
         <p class="footer">Thank you!</p>
     </div>
