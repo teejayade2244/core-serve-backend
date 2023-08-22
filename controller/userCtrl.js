@@ -204,7 +204,11 @@ function getRandomCamp() {
 
 //generate random number
 function generateRandomNumber() {
-    return Math.floor(1000000 + Math.random() * 9000000)
+    return Math.floor(100000 + Math.random() * 900000)
+}
+
+function generateRandomStateNumber() {
+    return Math.floor(10000 + Math.random() * 90000)
 }
 
 const createUser = async (req, res, next) => {
@@ -224,8 +228,11 @@ const createUser = async (req, res, next) => {
                 ...req.body,
                 statePostedTo: randomCamp.state,
                 OrientationCamp: randomCamp.camp,
+                StateCode: `${
+                    randomCamp.id
+                }/23A/${generateRandomStateNumber()}`,
                 CallUpNumber: `NYSC/DEMO/${generateRandomNumber()}`,
-                StateCode: `${randomCamp.id}/${generateRandomNumber()}`,
+                PPA: "",
             } // Add camp and statePostedTo to the user data
             const registerNewUser = await User.create(newUser)
             res.status(201).json({
@@ -237,13 +244,8 @@ const createUser = async (req, res, next) => {
             res.status(409).json({ error: "User Already Registered" })
         }
     } catch (err) {
-        if (err.name === "MongoServerError" && err.code === 11000) {
-            // Duplicate key error, return 409 Conflict status
-            res.status(409).json({ error: "User Already Registered" })
-        } else {
-            console.error("Error while registering user:", err)
-            res.status(500).json({ error: "Error while registering user" })
-        }
+        console.error("Error while registering user:", err)
+        res.status(500).json({ error: "Error while registering user" })
     }
 }
 
