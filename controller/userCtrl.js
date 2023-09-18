@@ -7,7 +7,9 @@ const crypto = require("crypto")
 const validateMongoDbId = require("../config/MongodbId")
 const { sendEmail } = require("../config/emailCtrl")
 const nodemailer = require("nodemailer")
+const { default: mongoose } = require("mongoose")
 
+// const { Socket } = require("socket.io")
 const campsData = [
     {
         id: "AB",
@@ -213,7 +215,6 @@ function generateRandomStateNumber() {
 
 const createUser = async (req, res, next) => {
     const { matric, mobile, email } = req.body
-
     try {
         const findDetails = await User.findOne({
             matric: matric,
@@ -235,6 +236,7 @@ const createUser = async (req, res, next) => {
                 PPA: "",
             } // Add camp and statePostedTo to the user data
             const registerNewUser = await User.create(newUser)
+
             res.status(201).json({
                 message: "User registered successfully",
                 user: registerNewUser,
@@ -369,23 +371,44 @@ const getaUser = asyncHandler(async (req, res) => {
     }
 })
 
+// const userData = asyncHandler(async (req, res) => {
+//     const { id } = req.params
+
+//     // Validate the MongoDB ObjectId
+//     try {
+//         validateMongoDbId(id)
+//     } catch (error) {
+//         return res.status(400).json({ message: error.message }) // Return a 400 Bad Request on validation failure
+//     }
+
+//     try {
+//         const user = await User.findById(id)
+
+//         if (!user) {
+//             return res.status(404).json({ message: "User not found" })
+//         }
+
+//         console.log("User Data:", user) // Log the user data
+//         res.json({ user })
+//     } catch (error) {
+//         console.error("Error while querying user:", error)
+//         res.status(500).json({ message: "Internal server error" })
+//     }
+// })
+
 const userData = asyncHandler(async (req, res) => {
-    const { id } = req.params
-
-    // Validate the MongoDB ObjectId
+    const { identifier } = req.params
     try {
-        validateMongoDbId(id)
-    } catch (error) {
-        return res.status(400).json({ message: error.message }) // Return a 400 Bad Request on validation failure
-    }
-
-    try {
-        const user = await User.findById(id)
+        let user
+        if (mongoose.Types.ObjectId.isValid(identifier)) {
+            user = await User.findById(identifier)
+        } else {
+            user = await User.findOne({ email: identifier })
+        }
 
         if (!user) {
             return res.status(404).json({ message: "User not found" })
         }
-
         console.log("User Data:", user) // Log the user data
         res.json({ user })
     } catch (error) {
@@ -393,6 +416,22 @@ const userData = asyncHandler(async (req, res) => {
         res.status(500).json({ message: "Internal server error" })
     }
 })
+// const userData = asyncHandler(async (req, res) => {
+//     const { email } = req.params
+//     try {
+//         const user = await User.findOne({ email })
+
+//         if (!user) {
+//             return res.status(404).json({ message: "User not found" })
+//         }
+
+//         console.log("User Data:", user) // Log the user data
+//         res.json({ user })
+//     } catch (error) {
+//         console.error("Error while querying user:", error)
+//         res.status(500).json({ message: "Internal server error" })
+//     }
+// })
 
 // admin login
 const loginAdmin = asyncHandler(async (req, res, next) => {
@@ -451,10 +490,10 @@ const getallUser = asyncHandler(async (req, res) => {
 })
 
 const updateUser = asyncHandler(async (req, res) => {
-    const { id } = req.params
+    const { email } = req.params
     const updates = req.body
 
-    User.findByIdAndUpdate(id, updates, { new: true })
+    User.findOneAndUpdate({ email }, updates, { new: true })
         .then(() =>
             res
                 .status(200)

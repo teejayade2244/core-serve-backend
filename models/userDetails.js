@@ -49,14 +49,15 @@ var userSchema = new mongoose.Schema(
         PPA: {
             type: String,
         },
+        Image: {
+            type: String,
+            default:
+                "https://th.bing.com/th/id/OIP.ho7hCKNowRHh7u5wu1aMWQHaF9?pid=ImgDet&rs=1",
+        },
         address: {
             type: String,
             required: true,
             description: "The address of the person",
-        },
-        img: {
-            data: Buffer,
-            contentType: String,
         },
         course: {
             type: String,

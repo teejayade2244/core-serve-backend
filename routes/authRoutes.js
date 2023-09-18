@@ -14,6 +14,7 @@ const {
     forgotPasswordToken,
     resetPassword,
     correctionMail,
+    // uploadFile,
 } = require("../controller/userCtrl")
 const { authMiddleware, isAdmin } = require("../middlewares/authMiddleware")
 
@@ -39,11 +40,11 @@ router.get("/user-data", authMiddleware, getaUser)
 
 router.post("/send-mail", authMiddleware, correctionMail)
 
-router.get("/:id", authMiddleware, isAdmin, userData)
+router.get("/:identifier", userData)
 
 router.post("/admin-login", loginAdmin)
 
-router.put("/:id", authMiddleware, isAdmin, updateUser)
+router.put("/:email", authMiddleware, isAdmin, updateUser)
 
 router.delete("/:id", deleteUser)
 
