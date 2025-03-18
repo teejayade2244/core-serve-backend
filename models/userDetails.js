@@ -149,19 +149,19 @@ userSchema.methods.createPasswordResetToken = async function () {
 //Export the model
 module.exports = mongoose.model("User", userSchema)
 
-// const rawPassword = "224468Ade"
-// const hashedPassword =
-//     "$2b$10$RL34/VD3tG5bNTa6hIl8.u1Hg7bEvut7jWc4Bdblr2Lu8lXe4CNpC"
+const rawPassword = "224468Ade$"
+const hashedPassword =
+    "$2b$10$8/iFwsvltwR8l45rolSFf.pIhyLcMkpkezQE9MrLedS6XnsYoIJJ2"
 
-// bcrypt
-//     .compare(rawPassword, hashedPassword)
-//     .then((isMatch) => {
-//         if (isMatch) {
-//             console.log("Password matches")
-//         } else {
-//             console.log("Password does not match")
-//         }
-//     })
-//     .catch((error) => {
-//         console.error("Error comparing passwords:", error)
-//     })
+bcrypt
+    .compare(rawPassword, hashedPassword)
+    .then((isMatch) => {
+        if (isMatch) {
+            console.log("Password matches")
+        } else {
+            console.log("Password does not match")
+        }
+    })
+    .catch((error) => {
+        console.error("Error comparing passwords:", error)
+    })
