@@ -232,7 +232,7 @@ const createUser = async (req, res, next) => {
                 StateCode: `${
                     randomCamp.id
                 }/23A/${generateRandomStateNumber()}`,
-                CallUpNumber: `NYSC/DEMO/${generateRandomNumber()}`,
+                CallUpNumber: `CORE/SERVE/${generateRandomNumber()}`,
                 PPA: "",
             } // Add camp and statePostedTo to the user data
             const registerNewUser = await User.create(newUser)
