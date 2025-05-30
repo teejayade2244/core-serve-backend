@@ -29,7 +29,6 @@ io.on("connection", (socket) => {
     socket.on("disconnect", () => console.log("Client disconnected"))
 })
 app.use(cors())
-dbConnect()
 app.use(morgan("dev"))
 app.set("io", io)
 app.use(bodyParser.json())
@@ -38,9 +37,19 @@ app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }))
 app.use(cookieParser())
 app.use("/api/user", authRouter)
 
+// Move database connection logic here
+if (process.env.NODE_ENV !== "test") {
+    dbConnect()
+}
+
 app.use(notFound)
 app.use(errorhandler)
 
-server.listen(PORT, () => {
-    console.log(`Server is running on ${PORT}`)
-})
+// Only start the server if not in test environment
+if (process.env.NODE_ENV !== "test") {
+    app.listen(PORT, () => {
+        console.log(`Server is running on ${PORT}`)
+    })
+}
+
+module.exports = { app }
