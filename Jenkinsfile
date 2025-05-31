@@ -51,7 +51,7 @@ pipeline {
             }
         }
 
-        // dependencies scanning
+        // dependencies scanningsupdate
         stage("Dependency Check scanning") {
             parallel {
                 stage("OWASP Dependency Check") { 
