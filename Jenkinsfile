@@ -44,7 +44,7 @@ pipeline {
                 script {
                     if (env.BRANCH_NAME.contains("PR-")) {
                         echo "This is a PR branch... Cleaning workspace before yarn install"
-                        sh 'rm -rf node_modules package-lock.json' // Clean the workspace first
+                        sh 'rm -rf node_modules yarn.lock' // Clean the workspace first
                     }
                 }
                  sh "yarn install --no-audit"
