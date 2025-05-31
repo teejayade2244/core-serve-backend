@@ -54,34 +54,24 @@ pipeline {
         // dependencies scanning
         stage("Dependency Check scanning") {
             parallel {
-                stage("yarn dependencies audit") {
+                stage("OWASP Dependency Check") { 
                     steps {
-                        // Run yarn audit to check for critical vulnerabilities
-                        sh '''
-                            yarn audit --audit-level=critical
-                            echo $?
-                        '''
+                        sh 'mkdir -p OWASP-security-reports'
+                        // Run OWASP Dependency Check scan with specific arguments
+                        withCredentials([string(credentialsId: 'NVD-API-KEY', variable: 'NVD_API_KEY')]) {
+                                dependencyCheck additionalArguments: '''
+                                    --scan "." \
+                                    --out "OWASP-security-reports" \
+                                    --disableYarnAudit \
+                                    --format \'ALL\' \
+                                    --prettyPrint \
+                                    --nvdApiKey '${NVD_API_KEY}' \
+                                ''', odcInstallation: 'OWAPS-Depend-check'
+                         }
+                        // Publish the Dependency Check report and fail the build if critical issues are found
+                        dependencyCheckPublisher failedTotalCritical: 2, pattern: 'OWASP-security-reports/dependency-check-report.xml', stopBuild: true
                     }
                 }
-
-                // stage("OWASP Dependency Check") { 
-                //     steps {
-                //         sh 'mkdir -p OWASP-security-reports'
-                //         // Run OWASP Dependency Check scan with specific arguments
-                //         withCredentials([string(credentialsId: 'NVD-API-KEY', variable: 'NVD_API_KEY')]) {
-                //                 dependencyCheck additionalArguments: '''
-                //                     --scan "." \
-                //                     --out "OWASP-security-reports" \
-                //                     --disableYarnAudit \
-                //                     --format \'ALL\' \
-                //                     --prettyPrint \
-                //                     --nvdApiKey '${NVD_API_KEY}' \
-                //                 ''', odcInstallation: 'OWAPS-Depend-check'
-                //          }
-                //         // Publish the Dependency Check report and fail the build if critical issues are found
-                //         dependencyCheckPublisher failedTotalCritical: 2, pattern: 'OWASP-security-reports/dependency-check-report.xml', stopBuild: true
-                //     }
-                // }
             }
         }
 
