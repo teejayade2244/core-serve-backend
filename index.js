@@ -21,7 +21,7 @@ const server = http.createServer(app)
 const io = require("socket.io")(server, {
     // Attach Socket.IO to the 'server' instance
     cors: {
-        origin: "http://localhost:3000", // Adjust as per your frontend's origin
+        origin: "http://a0bd629c8c1994870836f96ba4cd1321-1704283740.eu-west-2.elb.amazonaws.com:3000/", // Adjust as per your frontend's origin
         methods: ["GET", "POST"],
         allowedHeaders: ["my-custom-header"],
         credentials: true,

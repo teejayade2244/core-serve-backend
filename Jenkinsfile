@@ -254,25 +254,25 @@ pipeline {
         }
 
         // Upload build reports to AWS S3
-        stage('Upload Build reports to AWS s3') {
-            when {
-                branch 'PR*'  
-            }
-            steps {
-               sh '''
-                 mkdir -p reports-${TAG}
-                 cp -r  test-results Trivy-Image-Reports reports-${TAG}
-                 ls -ltr reports-${TAG}
-               '''
-               s3Upload(file:"reports-${TAG}", bucket:'jenkins-build-reports-core-serve-backend', path:"Jenkins-${TAG}-reports/")
+        // stage('Upload Build reports to AWS s3') {
+        //     when {
+        //         branch 'PR*'  
+        //     }
+        //     steps {
+        //        sh '''
+        //          mkdir -p reports-${TAG}
+        //          cp -r  test-results Trivy-Image-Reports reports-${TAG}
+        //          ls -ltr reports-${TAG}
+        //        '''
+        //        s3Upload(file:"reports-${TAG}", bucket:'jenkins-build-reports-core-serve-backend', path:"Jenkins-${TAG}-reports/")
                
                
-               script {
-                  // Clean up the reports directory after upload
-                  sh 'rm -rf reports-${TAG}'
-               }
-            }
-        }
+        //        script {
+        //           // Clean up the reports directory after upload
+        //           sh 'rm -rf reports-${TAG}'
+        //        }
+        //     }
+        // }
 
         // Run DAST scan using OWASP ZAP on master branch
         stage('DSAT') {
