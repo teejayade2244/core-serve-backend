@@ -12,6 +12,7 @@ const helmet = require("helmet")
 const PORT = process.env.PORT || 4000
 const http = require("http")
 const server = http.createServer(app)
+const mongoose = require("mongoose")
 
 const io = require("socket.io")(server, {
     cors: {
@@ -37,6 +38,19 @@ app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }))
 app.use(cookieParser())
 app.use("/api/user", authRouter)
 
+app.get("/health", (req, res) => {
+    res.status(200).json({ status: "ok" })
+})
+
+app.get("/ready", async (req, res) => {
+    try {
+        // Check database connection
+        await mongoose.connection.db.admin().ping()
+        res.status(200).json({ status: "ready" })
+    } catch (error) {
+        res.status(503).json({ status: "not ready", error: error.message })
+    }
+})
 // Move database connection logic here
 if (process.env.NODE_ENV !== "test") {
     dbConnect()
@@ -53,3 +67,5 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 module.exports = { app }
+
+
