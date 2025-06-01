@@ -51,8 +51,6 @@ app.get("/healthz", (req, res) => {
 app.get("/readyz", async (req, res) => {
     console.log("Readiness check hit")
     try {
-        // Assuming dbConnect() or mongoose.connect() has been called and connection is established
-        // This probe checks if the database is reachable
         await mongoose.connection.db.admin().ping()
         console.log("Database ping successful")
         res.status(200).json({ status: "ready" })
