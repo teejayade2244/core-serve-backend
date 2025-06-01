@@ -21,7 +21,7 @@ const server = http.createServer(app)
 const io = require("socket.io")(server, {
     // Attach Socket.IO to the 'server' instance
     cors: {
-        origin: "http://localhost:3000", // Adjust as per your frontend's origin
+        origin: "http://a0bd629c8c1994870836f96ba4cd1321-1704283740.eu-west-2.elb.amazonaws.com:3000/", // Adjust as per your frontend's origin
         methods: ["GET", "POST"],
         allowedHeaders: ["my-custom-header"],
         credentials: true,
@@ -51,8 +51,6 @@ app.get("/healthz", (req, res) => {
 app.get("/readyz", async (req, res) => {
     console.log("Readiness check hit")
     try {
-        // Assuming dbConnect() or mongoose.connect() has been called and connection is established
-        // This probe checks if the database is reachable
         await mongoose.connection.db.admin().ping()
         console.log("Database ping successful")
         res.status(200).json({ status: "ready" })
