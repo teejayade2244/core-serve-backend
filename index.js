@@ -38,11 +38,11 @@ app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }))
 app.use(cookieParser())
 app.use("/api/user", authRouter)
 
-app.get("/health", (req, res) => {
+app.get("/healthz", (req, res) => {
     res.status(200).json({ status: "ok" })
 })
 
-app.get("/ready", async (req, res) => {
+app.get("/readyz", async (req, res) => {
     try {
         // Check database connection
         await mongoose.connection.db.admin().ping()
