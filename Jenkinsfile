@@ -169,7 +169,6 @@ pipeline {
             }
         }
         
-
         // Update the image tag in the Kubernetes deployment file GitOps repository
         stage('K8S Update Image Tag') {
             when {
