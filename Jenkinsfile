@@ -178,7 +178,7 @@ pipeline {
                 script {
                     // Clone the GitOps repository
                     sh '''
-                        git clone -b master https://github.com/teejayade2244/GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App.git
+                        git clone -b main https://github.com/teejayade2244/GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App.git
                     '''
 
                     // Navigate to the Kubernetes directory
@@ -227,7 +227,7 @@ pipeline {
                             "title": "Updated Docker Image to '"${IMAGE_TAG}"'",
                             "body": "Updated Docker Image in staging manifest",
                             "head": "feature-'"${TAG}"'",
-                            "base": "master",
+                            "base": "main",
                             "assignees": ["teejayade2244"]
                         }'
                     '''
@@ -262,10 +262,10 @@ pipeline {
             }
         }
 
-        // Run DAST scan using OWASP ZAP on master branch
+        // Run DAST scan using OWASP ZAP on main branch
         stage('DSAT') {
             when {
-                branch 'master'  // Runs when a feature branch is pushed
+                branch 'main'  // Runs when a feature branch is pushed
             }
             steps {
                 script {
@@ -302,34 +302,34 @@ pipeline {
         // Update the image tag in the Kubernetes deployment file for production
         stage('K8S Update Image Tag In prod.yaml') {
             when {
-                branch 'master'
+                branch 'main'
             }
             steps {
                 script {
                     // Clone the GitOps repository
                     sh '''
-                        git clone -b master https://github.com/teejayade2244/GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App.git
+                        git clone -b main https://github.com/teejayade2244/GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App.git
                     '''
 
                     // Navigate to the Kubernetes directory
                     dir("GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App/Helm/core-serve-backend/values") {
                         sh '''
                             ls -la
-                            # Directly update the tag in prod.yaml on the master branch
+                            # Directly update the tag in prod.yaml on the main branch
                             sed -i "s/tag:.*\$/tag: ${TAG}/" prod.yaml
                             
                             # Verify the changes
                             cat prod.yaml
                         '''
 
-                        // Commit and push the changes directly to the master branch
+                        // Commit and push the changes directly to the main branch
                         withCredentials([string(credentialsId: 'Github account token', variable: 'GITHUB_TOKEN')]) {
                             sh '''
                                 git config --global user.email "temitope224468@gmail.com"
                                 git remote set-url origin https://${GITHUB_TOKEN}@github.com/teejayade2244/GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App.git
                                 git add prod.yaml
                                 git commit -m "Updated image tag to ${TAG} in prod environment"
-                                git push origin master
+                                git push origin main
                             '''
                         }
                     }
@@ -340,11 +340,11 @@ pipeline {
         // Deploy to production using ArgoCD
         stage('Production') {
             when {
-                branch 'master'
+                branch 'main'
             }
             steps {
                 script {
-                    echo "Production deployment initiated. ArgoCD will sync changes from the GitOps repository's master branch."
+                    echo "Production deployment initiated. ArgoCD will sync changes from the GitOps repository's main branch."
                 }
             }
         }
