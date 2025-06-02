@@ -241,38 +241,26 @@ pipeline {
             }
         }
 
-        // Manually approve the PR in GitOps repository
-        stage('Manually approve PR') {
+        // Upload build reports to AWS S3
+        stage('Upload Build reports to AWS s3') {
             when {
-                branch 'PR*'  // Runs when a feature branch is pushed
+                branch 'PR*'  
             }
             steps {
-                timeout(time: 2, unit: 'DAYS') {
-                        input message: 'Please approve the PR to proceed with deployment', ok: 'Approved, PR is merged to Master Branch and synced via ArgoCD'
-                }   
+               sh '''
+                 mkdir -p reports-${TAG}
+                 cp -r  Trivy-Image-Reports reports-${TAG}
+                 ls -ltr reports-${TAG}
+               '''
+               s3Upload(file:"reports-${TAG}", bucket:'jenkins-build-reports-core-serve-backend', path:"Jenkins-${TAG}-reports/")
+               
+               
+               script {
+                  // Clean up the reports directory after upload
+                  sh 'rm -rf reports-${TAG}'
+               }
             }
         }
-
-        // Upload build reports to AWS S3
-        // stage('Upload Build reports to AWS s3') {
-        //     when {
-        //         branch 'PR*'  
-        //     }
-        //     steps {
-        //        sh '''
-        //          mkdir -p reports-${TAG}
-        //          cp -r  test-results Trivy-Image-Reports reports-${TAG}
-        //          ls -ltr reports-${TAG}
-        //        '''
-        //        s3Upload(file:"reports-${TAG}", bucket:'jenkins-build-reports-core-serve-backend', path:"Jenkins-${TAG}-reports/")
-               
-               
-        //        script {
-        //           // Clean up the reports directory after upload
-        //           sh 'rm -rf reports-${TAG}'
-        //        }
-        //     }
-        // }
 
         // Run DAST scan using OWASP ZAP on master branch
         stage('DSAT') {
@@ -290,7 +278,7 @@ pipeline {
                                 -e ZAP_JVM_OPTIONS="-Xmx4g" \
                                 ghcr.io/zaproxy/zaproxy:stable \
                                 zap-full-scan.py \
-                                -t http://13.40.56.183:3000 \
+                                -t http://k8s-staging-coreserv-0b883551de-1001476474.eu-west-2.elb.amazonaws.com/api \
                                 -g gen.conf \
                                 -I \
                                 -r DAST-report.html \
@@ -305,22 +293,61 @@ pipeline {
                         currentBuild.result = 'FAILED'
                     }
                        archiveArtifacts artifacts: 'ZAP-reports/DAST-report.*', allowEmptyArchive: true
+                       sh 'cp -r  ZAP-reports reports-${TAG}'
+                       s3Upload(file:"reports-${TAG}", bucket:'jenkins-build-reports-core-serve-backend', path:"Jenkins-${TAG}-reports/")
                 }
             }
         }
         
-        // Deploy to production using ArgoCD
-        stage('Production ?') {
+        // Update the image tag in the Kubernetes deployment file for production
+        stage('K8S Update Image Tag In prod.yaml') {
             when {
                 branch 'master'
             }
             steps {
-                timeout(time: 2, unit: 'DAYS') {
-                        input message: 'Please approve to deploy to Production', ok: 'Approved, Deploy to Production'
-                }   
+                script {
+                    // Clone the GitOps repository
+                    sh '''
+                        git clone -b master https://github.com/teejayade2244/GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App.git
+                    '''
+
+                    // Navigate to the Kubernetes directory
+                    dir("GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App/Helm/core-serve-backend/values") {
+                        sh '''
+                            ls -la
+                            # Directly update the tag in prod.yaml on the master branch
+                            sed -i "s/tag:.*\$/tag: ${TAG}/" prod.yaml
+                            
+                            # Verify the changes
+                            cat prod.yaml
+                        '''
+
+                        // Commit and push the changes directly to the master branch
+                        withCredentials([string(credentialsId: 'Github account token', variable: 'GITHUB_TOKEN')]) {
+                            sh '''
+                                git config --global user.email "temitope224468@gmail.com"
+                                git remote set-url origin https://${GITHUB_TOKEN}@github.com/teejayade2244/GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App.git
+                                git add prod.yaml
+                                git commit -m "Updated image tag to ${TAG} in prod environment"
+                                git push origin master
+                            '''
+                        }
+                    }
+                }
             }
         }
-        
+
+        // Deploy to production using ArgoCD
+        stage('Production') {
+            when {
+                branch 'master'
+            }
+            steps {
+                script {
+                    echo "Production deployment initiated. ArgoCD will sync changes from the GitOps repository's master branch."
+                }
+            }
+        }
     }
        
     // post actions.
