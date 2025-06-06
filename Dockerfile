@@ -1,5 +1,5 @@
 # Stage 1: Build stage
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -14,7 +14,7 @@ RUN yarn install --frozen-lockfile
 COPY . .
 
 # Stage 2: Production stage
-FROM node:18-alpine
+FROM node:22-alpine
 
 # Set working directory
 WORKDIR /app
@@ -45,6 +45,3 @@ USER appuser
 
 # Set the entry point
 ENTRYPOINT ["node", "index.js"]
-
-
-
