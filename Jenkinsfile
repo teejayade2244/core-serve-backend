@@ -178,7 +178,7 @@ pipeline {
                 script {
                     // Clone the GitOps repository
                     sh '''
-                        git clone -b main https://github.com/teejayade2244/GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App.git
+                        git clone -b master https://github.com/teejayade2244/GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App.git
                     '''
 
                     // Navigate to the Kubernetes directory
