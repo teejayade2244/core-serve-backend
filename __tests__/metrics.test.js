@@ -112,21 +112,41 @@ describe("Prometheus Metrics", () => {
             gender: "Male",
         }
 
-        // Register first
+        // Register first and verify
         const registerResponse = await request(app)
             .post("/api/user/register")
             .send(user)
 
         expect(registerResponse.status).toBe(201)
 
-        // Then login
-        const loginResponse = await request(app).post("/api/user/login").send({
-            email: user.email,
-            Password: user.Password, // Note: case sensitive
-        })
+        // Wait for a short time to ensure registration is complete
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        // Verify user exists before login
+        const userExists = await User.findOne({ email: user.email })
+        expect(userExists).toBeTruthy()
+
+        // Then login with retry logic
+        let loginResponse
+        let attempts = 0
+        const maxAttempts = 3
+
+        while (attempts < maxAttempts) {
+            loginResponse = await request(app).post("/api/user/login").send({
+                email: user.email,
+                Password: user.Password,
+            })
+
+            if (loginResponse.status === 200) break
+
+            attempts++
+            await new Promise((resolve) => setTimeout(resolve, 1000))
+        }
 
         expect(loginResponse.status).toBe(200)
+        expect(loginResponse.body).toHaveProperty("token")
 
+        // Check metrics after successful login
         const metricsResponse = await request(app).get("/metrics")
         const loginCount = Number(
             metricsResponse.text.match(/core_serve_login_total\s+(\d+)/)?.[1] ||
