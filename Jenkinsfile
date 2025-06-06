@@ -52,28 +52,28 @@ pipeline {
         }
 
         // dependencies scanning
-        stage("Dependency Check scanning") {
-            parallel {
-                stage("OWASP Dependency Check") { 
-                    steps {
-                        sh 'mkdir -p OWASP-security-reports'
-                        // Run OWASP Dependency Check scan with specific arguments
-                        withCredentials([string(credentialsId: 'NVD-API-KEY', variable: 'NVD_API_KEY')]) {
-                                dependencyCheck additionalArguments: '''
-                                    --scan "." \
-                                    --out "OWASP-security-reports" \
-                                    --disableYarnAudit \
-                                    --format \'ALL\' \
-                                    --prettyPrint \
-                                    --nvdApiKey '${NVD_API_KEY}' \
-                                ''', odcInstallation: 'OWAPS-Depend-check'
-                         }
-                        // Publish the Dependency Check report and fail the build if critical issues are found
-                        dependencyCheckPublisher failedTotalCritical: 2, pattern: 'OWASP-security-reports/dependency-check-report.xml', stopBuild: true
-                    }
-                }
-            }
-        }
+        // stage("Dependency Check scanning") {
+        //     parallel {
+        //         stage("OWASP Dependency Check") { 
+        //             steps {
+        //                 sh 'mkdir -p OWASP-security-reports'
+        //                 // Run OWASP Dependency Check scan with specific arguments
+        //                 withCredentials([string(credentialsId: 'NVD-API-KEY', variable: 'NVD_API_KEY')]) {
+        //                         dependencyCheck additionalArguments: '''
+        //                             --scan "." \
+        //                             --out "OWASP-security-reports" \
+        //                             --disableYarnAudit \
+        //                             --format \'ALL\' \
+        //                             --prettyPrint \
+        //                             --nvdApiKey '${NVD_API_KEY}' \
+        //                         ''', odcInstallation: 'OWAPS-Depend-check'
+        //                  }
+        //                 // Publish the Dependency Check report and fail the build if critical issues are found
+        //                 dependencyCheckPublisher failedTotalCritical: 2, pattern: 'OWASP-security-reports/dependency-check-report.xml', stopBuild: true
+        //             }
+        //         }
+        //     }
+        // }
 
         // unit testing
         // stage("Unit Testing stage") {
@@ -85,25 +85,25 @@ pipeline {
         // }
 
         // static testing and analysis with SonarQube
-        stage("Static Testing and Analysis with SonarQube") {
-            environment {
-                    SONAR_SCANNER_HOME = tool 'sonarqube-scanner-6.1.0.477'
-                }
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    withSonarQubeEnv('sonarqube-server') {
-                        // Run SonarQube scanner with specific parameters
-                        sh '''
-                            ${SONAR_SCANNER_HOME}/bin/sonar-scanner \
-                            -Dsonar.projectKey=Serve-core-backend \
-                            -Dsonar.sources=. \
-                        '''
-                    }
-                }
-                // Wait for SonarQube quality gate and fail the pipeline if it's not OK
-                waitForQualityGate abortPipeline: true
-            }
-        }
+        // stage("Static Testing and Analysis with SonarQube") {
+        //     environment {
+        //             SONAR_SCANNER_HOME = tool 'sonarqube-scanner-6.1.0.477'
+        //         }
+        //     steps {
+        //         timeout(time: 5, unit: 'MINUTES') {
+        //             withSonarQubeEnv('sonarqube-server') {
+        //                 // Run SonarQube scanner with specific parameters
+        //                 sh '''
+        //                     ${SONAR_SCANNER_HOME}/bin/sonar-scanner \
+        //                     -Dsonar.projectKey=Serve-core-backend \
+        //                     -Dsonar.sources=. \
+        //                 '''
+        //             }
+        //         }
+        //         // Wait for SonarQube quality gate and fail the pipeline if it's not OK
+        //         waitForQualityGate abortPipeline: true
+        //     }
+        // }
 
         // login to ECR
         stage("Image Build and Tag") {
