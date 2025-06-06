@@ -15,7 +15,7 @@ const mongoose = require("mongoose")
 const { register } = require("./config/metricsConfig")
 const metricsMiddleware = require("./middlewares/metricsMiddleware")
 
-// Create the HTTP server using the express app
+// HTTP server using the express app
 const server = http.createServer(app)
 
 // Initialize Socket.IO with the HTTP server
