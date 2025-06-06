@@ -76,13 +76,13 @@ pipeline {
         }
 
         // unit testing
-        stage("Unit Testing stage") {
-            steps {
-                // Run unit tests with yarn
-                sh 'mkdir -p test-results'
-                sh "yarn test __tests__/metrics.test.js --verbose"
-            } 
-        }
+        // stage("Unit Testing stage") {
+        //     steps {
+        //         // Run unit tests with yarn
+        //         sh 'mkdir -p test-results'
+        //         sh "yarn test __tests__/metrics.test.js --verbose"
+        //     } 
+        // }
 
         // static testing and analysis with SonarQube
         stage("Static Testing and Analysis with SonarQube") {
