@@ -8,6 +8,7 @@ const validateMongoDbId = require("../config/MongodbId")
 const { sendEmail } = require("../config/emailCtrl")
 const nodemailer = require("nodemailer")
 const { default: mongoose } = require("mongoose")
+const { metrics } = require("../config/metricsConfig")
 
 // const { Socket } = require("socket.io")
 const campsData = [
@@ -236,7 +237,8 @@ const createUser = async (req, res, next) => {
                 PPA: "",
             } // Add camp and statePostedTo to the user data
             const registerNewUser = await User.create(newUser)
-
+            const totalUsersCount = await User.countDocuments()
+            metrics.totalUsers.set(totalUsersCount)
             res.status(201).json({
                 message: "User registered successfully",
                 user: registerNewUser,
@@ -258,6 +260,7 @@ const loginUser = asyncHandler(async (req, res) => {
     const findUser = await User.findOne({ email })
     if (findUser && (await findUser.isPasswordMatched(Password))) {
         const refreshToken = await generateRefreshToken(findUser?._id)
+        metrics.activeLogins.inc()
         // eslint-disable-next-line no-unused-vars
         const updateuser = await User.findByIdAndUpdate(
             findUser.id,
