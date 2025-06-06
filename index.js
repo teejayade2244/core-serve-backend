@@ -12,6 +12,8 @@ const helmet = require("helmet")
 const PORT = process.env.PORT || 4000
 const http = require("http")
 const mongoose = require("mongoose")
+const { register } = require("./config/metricsConfig")
+const metricsMiddleware = require("./middlewares/metricsMiddleware")
 
 // Create the HTTP server using the express app
 const server = http.createServer(app)
@@ -40,12 +42,13 @@ const corsOptions = {
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "my-custom-header"],
     credentials: true,
-    optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+    optionsSuccessStatus: 200, 
 }
 
-app.use(cors(corsOptions)) // Use the detailed configuration instead of cors()
+app.use(cors(corsOptions)) 
 app.use(morgan("dev"))
 app.set("io", io)
+app.use(metricsMiddleware)
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }))
@@ -67,6 +70,15 @@ app.get("/readyz", async (req, res) => {
     } catch (error) {
         console.log("Database ping failed:", error.message)
         res.status(503).json({ status: "not ready", error: error.message })
+    }
+})
+
+app.get("/metrics", async (req, res) => {
+    try {
+        res.set("Content-Type", register.contentType)
+        res.end(await register.metrics())
+    } catch (err) {
+        res.status(500).end(err)
     }
 })
 
