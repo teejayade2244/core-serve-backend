@@ -227,7 +227,7 @@ pipeline {
                             "title": "Updated Docker Image to '"${IMAGE_TAG}"'",
                             "body": "Updated Docker Image in staging manifest",
                             "head": "feature-'"${TAG}"'",
-                            "base": "main",
+                            "base": "master",
                             "assignees": ["teejayade2244"]
                         }'
                     '''
@@ -302,7 +302,7 @@ pipeline {
         // Update the image tag in the Kubernetes deployment file for production
         stage('K8S Update Image Tag In prod.yaml') {
             when {
-                branch 'master'
+                branch 'main'
             }
             steps {
                 script {

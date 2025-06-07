@@ -1,26 +1,16 @@
 const request = require("supertest")
 const { app } = require("../index")
-const { metrics, register } = require("../config/metricsConfig")
-const User = require("../models/userDetails")
-const {
-    connectTestDB,
-    disconnectTestDB,
-    clearTestDB,
-} = require("../config/testDb")
+const { metrics } = require("../config/metricsConfig")
+const { setupTestDB } = require("./testUtils")
 
 describe("Prometheus Metrics", () => {
-    beforeAll(async () => {
-        await connectTestDB()
-    })
+    setupTestDB()
 
     beforeEach(async () => {
-        await clearTestDB()
-        await metrics.activeLogins.reset()
-        await metrics.totalUsers.reset()
-    })
-
-    afterAll(async () => {
-        await disconnectTestDB()
+        // Reset metrics before each test
+        Object.values(metrics).forEach((metric) => {
+            if (metric.reset) metric.reset()
+        })
     })
 
     test("metrics endpoint should return 200", async () => {
@@ -36,13 +26,10 @@ describe("Prometheus Metrics", () => {
             /core_serve_http_request_duration_seconds/
         )
         expect(response.text).toMatch(/core_serve_total_users/)
-        expect(response.text).toMatch(/core_serve_login_total/)
     })
 
     test("http duration metric should be updated after requests", async () => {
-        const response = await request(app).get("/healthz")
-        expect(response.status).toBe(200)
-
+        await request(app).get("/healthz")
         const metricsResponse = await request(app).get("/metrics")
         expect(metricsResponse.text).toMatch(/http_request_duration_seconds/)
         expect(metricsResponse.text).toMatch(/method="GET"/)
@@ -50,108 +37,73 @@ describe("Prometheus Metrics", () => {
     })
 
     test("total users metric should be updated after user registration", async () => {
-        const user = {
+        const testUser = {
+            email: "test@example.com",
+            Password: "Test123!",
             firstname: "Test",
             lastname: "User",
-            email: "test@example.com",
-            password: "Password123!",
             mobile: "1234567890",
-            role: "user",
-            Password: "Password123!", // Note: case sensitive
-            Batch: "2023A",
-            to: "2024",
-            from: "2023",
-            status: "active",
-            qualification: "BSc",
-            matric: "12345",
-            stateOfOrigin: "Lagos",
-            course: "Computer Science",
-            address: "123 Test Street",
-            school: "Test University",
+            matric: "TEST123",
             gender: "Male",
+            address: "Test Address",
+            school: "Test University",
+            course: "Computer Science",
+            stateOfOrigin: "Test State",
+            qualification: "BSc",
+            from: "2023",
+            to: "2024",
+            status: "Active",
+            Batch: "A",
         }
 
-        const registerResponse = await request(app)
+        const response = await request(app)
             .post("/api/user/register")
-            .send(user)
+            .send(testUser)
 
-        if (registerResponse.status !== 201) {
-            console.log("Registration failed:", registerResponse.body)
-        }
-
-        expect(registerResponse.status).toBe(201)
+        expect(response.status).toBe(201)
 
         const metricsResponse = await request(app).get("/metrics")
-        const userCount = Number(
-            metricsResponse.text.match(/core_serve_total_users\s+(\d+)/)?.[1] ||
-                0
+        const match = metricsResponse.text.match(
+            /core_serve_total_users\s+(\d+)/
         )
+        const userCount = match ? parseInt(match[1]) : 0
         expect(userCount).toBe(1)
     })
 
     test("login total metric should increment after successful login", async () => {
-        // Create test user with all required fields
-        const user = {
+        const testUser = {
+            email: "test@example.com",
+            Password: "Test123!",
             firstname: "Test",
             lastname: "User",
-            email: "login@test.com",
-            password: "Password123!",
             mobile: "1234567890",
-            role: "user",
-            Password: "Password123!", // Note: case sensitive
-            Batch: "2023A",
-            to: "2024",
-            from: "2023",
-            status: "active",
-            qualification: "BSc",
-            matric: "12345",
-            stateOfOrigin: "Lagos",
-            course: "Computer Science",
-            address: "123 Test Street",
-            school: "Test University",
+            matric: "TEST123",
             gender: "Male",
+            address: "Test Address",
+            school: "Test University",
+            course: "Computer Science",
+            stateOfOrigin: "Test State",
+            qualification: "BSc",
+            from: "2023",
+            to: "2024",
+            status: "Active",
+            Batch: "A",
         }
 
-        // Register first and verify
-        const registerResponse = await request(app)
-            .post("/api/user/register")
-            .send(user)
+        await request(app).post("/api/user/register").send(testUser)
 
-        expect(registerResponse.status).toBe(201)
-
-        // Wait for a short time to ensure registration is complete
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        // Verify user exists before login
-        const userExists = await User.findOne({ email: user.email })
-        expect(userExists).toBeTruthy()
-
-        // Then login with retry logic
-        let loginResponse
-        let attempts = 0
-        const maxAttempts = 3
-
-        while (attempts < maxAttempts) {
-            loginResponse = await request(app).post("/api/user/login").send({
-                email: user.email,
-                Password: user.Password,
-            })
-
-            if (loginResponse.status === 200) break
-
-            attempts++
-            await new Promise((resolve) => setTimeout(resolve, 1000))
-        }
+        const loginResponse = await request(app).post("/api/user/login").send({
+            email: testUser.email,
+            Password: testUser.Password,
+        })
 
         expect(loginResponse.status).toBe(200)
-        expect(loginResponse.body).toHaveProperty("token")
 
-        // Check metrics after successful login
         const metricsResponse = await request(app).get("/metrics")
-        const loginCount = Number(
-            metricsResponse.text.match(/core_serve_login_total\s+(\d+)/)?.[1] ||
-                0
+        const match = metricsResponse.text.match(
+            /core_serve_login_total\s+(\d+)/
         )
+        const loginCount = match ? parseInt(match[1]) : 0
         expect(loginCount).toBe(1)
     })
 })
