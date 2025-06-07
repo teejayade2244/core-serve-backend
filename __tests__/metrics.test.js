@@ -1,6 +1,6 @@
 const request = require("supertest")
 const { app } = require("../index")
-const { metrics } = require("../config/metricsConfig")
+const { metrics, register } = require("../config/metricsConfig")
 const User = require("../models/userDetails")
 const {
     connectTestDB,
@@ -26,7 +26,7 @@ describe("Prometheus Metrics", () => {
     test("metrics endpoint should return 200", async () => {
         const response = await request(app)
             .get("/metrics")
-            .expect("Content-Type", /text/)
+            .expect("Content-Type", /text\/plain/)
         expect(response.status).toBe(200)
     })
 

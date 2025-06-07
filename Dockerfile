@@ -38,7 +38,7 @@ RUN yarn cache clean && rm -rf /app/node_modules/.cache
 RUN chmod -R 755 /app/uploads
 
 # Expose the port
-EXPOSE 5000
+EXPOSE 5000 7000
 
 # Use the non-root user
 USER appuser
