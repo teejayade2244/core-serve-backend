@@ -315,7 +315,7 @@ pipeline {
                     dir("GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App/Helm/core-serve-backend/values") {
                         sh '''
                             ls -la
-                            # Directly update the tag in prod.yaml on the main branch
+                            # Directly update the tag in prod.yaml on the master branch
                             sed -i "s/tag:.*\$/tag: ${TAG}/" prod.yaml
                             
                             # Verify the changes
