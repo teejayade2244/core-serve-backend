@@ -79,7 +79,7 @@ app.get("/", (req, res) => {
     res.status(200).json({ message: "Welcome to the Core Serve Backend API!" })
 })
 
-// separate Express app for metrics
+// Express app for metrics
 const metricsApp = express()
 const METRICS_PORT = process.env.METRICS_PORT || 7000
 
