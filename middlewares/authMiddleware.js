@@ -6,8 +6,8 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
     let token
 
     console.log("Auth Middleware Hit!")
-    console.log("Request Headers:", req.headers) // See if Authorization header is present
-    console.log("Request Cookies:", req.cookies) 
+    console.log("Request Headers:", req.headers) 
+    console.log("Request Cookies:", req.cookies)
 
     if (req.headers?.authorization?.startsWith("Bearer")) {
         token = req.headers.authorization.split(" ")[1]
@@ -32,7 +32,8 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
     try {
         const decoded = jwt.verify(
             token,
-            process.env.JWT_SECRET || "test-secret"
+            // CORRECTED: Now strictly relies on process.env.JWT_SECRET_TOKEN
+            process.env.JWT_SECRET_TOKEN
         )
         console.log("Token successfully verified. Decoded:", decoded)
         req.user = decoded
