@@ -42,10 +42,10 @@ const corsOptions = {
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "my-custom-header"],
     credentials: true,
-    optionsSuccessStatus: 200, 
+    optionsSuccessStatus: 200,
 }
 
-app.use(cors(corsOptions)) 
+app.use(cors(corsOptions))
 app.use(morgan("dev"))
 app.set("io", io)
 app.use(metricsMiddleware)
@@ -73,7 +73,15 @@ app.get("/readyz", async (req, res) => {
     }
 })
 
-app.get("/metrics", async (req, res) => {
+// Create a separate Express app for metrics
+const metricsApp = express()
+const METRICS_PORT = process.env.METRICS_PORT || 7000
+
+// Apply metrics middleware to metrics app
+metricsApp.use(metricsMiddleware)
+
+// Move metrics endpoint to metrics app
+metricsApp.get("/metrics", async (req, res) => {
     try {
         res.set("Content-Type", register.contentType)
         res.end(await register.metrics())
@@ -81,6 +89,16 @@ app.get("/metrics", async (req, res) => {
         res.status(500).end(err)
     }
 })
+
+// In test environment, mount metrics app as middleware
+if (process.env.NODE_ENV === "test") {
+    app.use(metricsApp)
+} else {
+    // Start metrics server on different port in non-test environment
+    metricsApp.listen(METRICS_PORT, () => {
+        console.log(`Metrics server is running on port ${METRICS_PORT}`)
+    })
+}
 
 if (process.env.NODE_ENV !== "test") {
     dbConnect()
