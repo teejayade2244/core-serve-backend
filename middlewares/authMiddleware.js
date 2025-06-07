@@ -7,7 +7,7 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
 
     console.log("Auth Middleware Hit!")
     console.log("Request Headers:", req.headers) // See if Authorization header is present
-    console.log("Request Cookies:", req.cookies) // See if refreshToken cookie is present
+    console.log("Request Cookies:", req.cookies) 
 
     if (req.headers?.authorization?.startsWith("Bearer")) {
         token = req.headers.authorization.split(" ")[1]
