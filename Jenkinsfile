@@ -302,7 +302,7 @@ pipeline {
         // Update the image tag in the Kubernetes deployment file for production
         stage('K8S Update Image Tag In prod.yaml') {
             when {
-                branch 'main'
+                branch 'master'
             }
             steps {
                 script {
