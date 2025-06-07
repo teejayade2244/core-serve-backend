@@ -32,7 +32,6 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
     try {
         const decoded = jwt.verify(
             token,
-            // CORRECTED: Now strictly relies on process.env.JWT_SECRET_TOKEN
             process.env.JWT_SECRET_TOKEN
         )
         console.log("Token successfully verified. Decoded:", decoded)
