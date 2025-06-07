@@ -12,6 +12,7 @@ const helmet = require("helmet")
 const PORT = process.env.PORT || 4000
 const http = require("http")
 const mongoose = require("mongoose")
+const metricsRoutes = require("./routes/metricsRoutes")
 const { register } = require("./config/metricsConfig")
 const metricsMiddleware = require("./middlewares/metricsMiddleware")
 
@@ -49,6 +50,7 @@ app.use(cors(corsOptions))
 app.use(morgan("dev"))
 app.set("io", io)
 app.use(metricsMiddleware)
+app.use("/", metricsRoutes)
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }))
@@ -90,11 +92,8 @@ metricsApp.get("/metrics", async (req, res) => {
     }
 })
 
-// In test environment, mount metrics app as middleware
-if (process.env.NODE_ENV === "test") {
-    app.use(metricsApp)
-} else {
-    // Start metrics server on different port in non-test environment
+// Start metrics server on different port
+if (process.env.NODE_ENV !== "test") {
     metricsApp.listen(METRICS_PORT, () => {
         console.log(`Metrics server is running on port ${METRICS_PORT}`)
     })

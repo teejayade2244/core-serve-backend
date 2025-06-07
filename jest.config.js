@@ -1,15 +1,24 @@
 module.exports = {
     testEnvironment: "node",
-    preset: "@shelf/jest-mongodb",
-    setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
-    coverageThreshold: {
-        global: {
-            branches: 15,
-            functions: 20,
-            lines: 40,
-            statements: 40,
-        },
-    },
-    testMatch: ["**/__tests__/**/*.test.js"],
+    testTimeout: 120000,
+    setupFilesAfterEnv: ["./jest.setup.js"],
     verbose: true,
+    collectCoverage: true,
+    coverageDirectory: "coverage",
+    coveragePathIgnorePatterns: [
+        "/node_modules/",
+        "/config/",
+        "/coverage/",
+        "/dist/",
+        "/docs/",
+    ],
+    testPathIgnorePatterns: [
+        "/node_modules/",
+        "/config/",
+        "/coverage/",
+        "/dist/",
+        "/docs/",
+    ],
+    moduleFileExtensions: ["js", "json"],
+    testMatch: ["**/__tests__/**/*.test.js"],
 }

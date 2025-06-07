@@ -18,4 +18,19 @@ const metricsMiddleware = (req, res, next) => {
     next()
 }
 
+// Helper functions for updating metrics
+metricsMiddleware.incrementTotalUsers = () => {
+    metrics.totalUsers.inc()
+}
+
+metricsMiddleware.incrementLoginCount = () => {
+    metrics.activeLogins.inc()
+}
+
+metricsMiddleware.resetMetrics = async () => {
+    await metrics.activeLogins.reset()
+    await metrics.totalUsers.reset()
+    await metrics.httpRequestDuration.reset()
+}
+
 module.exports = metricsMiddleware
