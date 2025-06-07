@@ -238,8 +238,8 @@ const createUser = async (req, res, next) => {
                 PPA: "",
             } // Add camp and statePostedTo to the user data
             const registerNewUser = await User.create(newUser)
-            const totalUsersCount = await User.countDocuments()
-            metricsMiddleware.incrementTotalUsers()
+            metrics.registrationCount.inc()
+            metrics.totalUsers.inc()
             res.status(201).json({
                 message: "User registered successfully",
                 user: registerNewUser,
@@ -251,6 +251,10 @@ const createUser = async (req, res, next) => {
     } catch (err) {
         console.error("Error while registering user:", err)
         res.status(500).json({ error: "Error while registering user" })
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/register",
+            error_type: err.message,
+        })
     }
 }
 
@@ -262,6 +266,8 @@ const loginUser = asyncHandler(async (req, res) => {
     if (findUser && (await findUser.isPasswordMatched(Password))) {
         const refreshToken = await generateRefreshToken(findUser?._id)
         metricsMiddleware.incrementLoginCount()
+        metrics.activeLogins.inc()
+        metrics.activeSessions.inc()
         // eslint-disable-next-line no-unused-vars
         const updateuser = await User.findByIdAndUpdate(
             findUser.id,
@@ -285,7 +291,17 @@ const loginUser = asyncHandler(async (req, res) => {
             token: generateToken(findUser?._id),
         })
     } else {
+        metrics.failedLogins.inc()
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/login",
+            error_type: "Invalid Credentials",
+        })
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/login",
+            error_type: "Failed Login Attempt",
+        })
         return res.status(401).json({ error: "Invalid Credentials" })
+        
     }
 })
 
@@ -317,7 +333,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 
     const refreshToken = cookie.refreshToken
     const user = await User.findOne({ refreshToken })
-
+    metrics.activeSessions.dec()
     if (!user) {
         res.clearCookie("refreshToken", {
             httpOnly: true,
@@ -341,6 +357,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     })
 
     return res.status(200).json({ message: "User logged out successfully" })
+    
 })
 
 //delete user
@@ -362,15 +379,27 @@ const deleteUser = asyncHandler(async (req, res) => {
 const getaUser = asyncHandler(async (req, res) => {
     try {
         const userId = req.user.id
-
+        const start = Date.now()
         const user = await User.findById(userId)
-
+        const duration = (Date.now() - start) / 1000
+        metrics.httpRequestDuration.observe(
+            {
+                method: "GET",
+                route: "/api/user",
+                status_code: 200,
+            },
+            duration
+        )
         if (!user) {
             return res.status(404).json({ message: "User not Found" })
         }
         // console.log("User Data:", user) // Log the user data
         res.json(user)
     } catch (err) {
+        metrics.apiErrors.inc({
+            endpoint: "/api/user",
+            error_type: err.message,
+        })
         res.status(500).json({ message: err.message })
     }
 })
@@ -450,6 +479,10 @@ const loginAdmin = asyncHandler(async (req, res, next) => {
         }
 
         if (findAdmin.role !== "admin") {
+            metrics.apiErrors.inc({
+                endpoint: "/api/admin/login",
+                error_type: "Unauthorized Admin Access",
+            })
             return res.status(403).json({ message: "You are not an Admin" })
         }
 
@@ -481,6 +514,10 @@ const loginAdmin = asyncHandler(async (req, res, next) => {
         }
     } catch (error) {
         res.status(500).json({ message: "An error occurred" })
+        metrics.apiErrors.inc({
+            endpoint: "/api/admin/login",
+            error_type: error.message,
+        })
     }
 })
 
@@ -516,7 +553,10 @@ const updatePassword = asyncHandler(async (req, res) => {
     try {
         const { _id } = req.user
         const { currentPassword, Password } = req.body // get also the current password from request body
-
+        metrics.userActivityMonitor.inc({
+            activity_type: "password_update",
+            user_role: "user",
+        })
         validateMongoDbId(_id) // I assume this function validates the MongoDB ObjectId
 
         const user = await User.findById(_id)
@@ -549,6 +589,10 @@ const updatePassword = asyncHandler(async (req, res) => {
     } catch (error) {
         console.error(error)
         res.status(500).json({ message: "Server error" })
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/password",
+            error_type: error.message,
+        })
     }
 })
 
