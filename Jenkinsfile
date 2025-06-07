@@ -302,13 +302,13 @@ pipeline {
         // Update the image tag in the Kubernetes deployment file for production
         stage('K8S Update Image Tag In prod.yaml') {
             when {
-                branch 'main'
+                branch 'master'
             }
             steps {
                 script {
                     // Clone the GitOps repository
                     sh '''
-                        git clone -b main https://github.com/teejayade2244/GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App.git
+                        git clone -b master https://github.com/teejayade2244/GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App.git
                     '''
 
                     // Navigate to the Kubernetes directory
@@ -329,7 +329,7 @@ pipeline {
                                 git remote set-url origin https://${GITHUB_TOKEN}@github.com/teejayade2244/GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App.git
                                 git add prod.yaml
                                 git commit -m "Updated image tag to ${TAG} in prod environment"
-                                git push origin main
+                                git push origin master
                             '''
                         }
                     }
