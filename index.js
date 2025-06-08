@@ -12,8 +12,9 @@ const helmet = require("helmet")
 const PORT = process.env.PORT || 4000
 const http = require("http")
 const mongoose = require("mongoose")
-const metricsRoutes = require("./routes/metricsRoutes")
-const { register } = require("./config/metricsConfig")
+// Do not import metricsRoutes here if it's only for metricsApp
+// const metricsRoutes = require("./routes/metricsRoutes")
+const { register, metrics } = require("./config/metricsConfig") // Ensure 'metrics' is imported here
 const metricsMiddleware = require("./middlewares/metricsMiddleware")
 
 // HTTP server using the express app
@@ -31,6 +32,7 @@ const io = require("socket.io")(server, {
 
 io.on("connection", (socket) => {
     console.log("New client connected")
+    // You might want to increment/decrement metrics.activeSessions here
     socket.on("disconnect", () => console.log("Client disconnected"))
 })
 
@@ -49,17 +51,27 @@ const corsOptions = {
 app.use(cors(corsOptions))
 app.use(morgan("dev"))
 app.set("io", io)
-app.use(metricsMiddleware)
-app.use("/", metricsRoutes)
-app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({ extended: false }))
-app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }))
-app.use(cookieParser())
-app.use("/api/user", authRouter)
 
-// Health and Readiness Probes
+// Apply metrics middleware to capture request durations for ALL routes
+app.use(metricsMiddleware)
+
+// --- FIXED ROUTING ORDER ---
+// Define specific application routes BEFORE general-purpose routers
+// (like authRouter) and before the notFound middleware.
+
+// Root path handler
+app.get("/", (req, res) => {
+    res.status(200).json({ message: "Welcome to the Core Serve Backend API!" })
+})
+
+// Health and Readiness Probes - moved up to be handled
 app.get("/healthz", (req, res) => {
     console.log("Health check hit")
+    // Ensure metrics.healthCheckStatus is defined and correctly incremented/set
+    // If not, remove or handle gracefully to avoid errors.
+    if (metrics && metrics.healthCheckStatus) {
+        metrics.healthCheckStatus.set(1) // Set metric to 1 (healthy)
+    }
     res.status(200).json({ status: "ok" })
 })
 
@@ -68,25 +80,39 @@ app.get("/readyz", async (req, res) => {
     try {
         await mongoose.connection.db.admin().ping()
         console.log("Database ping successful")
+        if (metrics && metrics.healthCheckStatus) {
+            metrics.healthCheckStatus.set(1) // Set metric to 1 (ready)
+        }
         res.status(200).json({ status: "ready" })
     } catch (error) {
         console.log("Database ping failed:", error.message)
+        if (metrics && metrics.healthCheckStatus) {
+            metrics.healthCheckStatus.set(0) // Set metric to 0 (not ready)
+        }
         res.status(503).json({ status: "not ready", error: error.message })
     }
 })
 
-app.get("/", (req, res) => {
-    res.status(200).json({ message: "Welcome to the Core Serve Backend API!" })
-})
+// Now add body parsers and other security middleware after basic routes,
+// but before specific API routers.
+app.use(bodyParser.json())
+app.use(bodyParser.urlencoded({ extended: false }))
+app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }))
+app.use(cookieParser())
 
-// Express app for metrics
+// Main API Router
+app.use("/api/user", authRouter)
+
+// --- END FIXED ROUTING ORDER ---
+
+// Create a separate Express app for metrics
 const metricsApp = express()
 const METRICS_PORT = process.env.METRICS_PORT || 7000
 
-// Apply metrics middleware to metrics app
+// Apply metrics middleware to metrics app (if desired for metrics server itself)
 metricsApp.use(metricsMiddleware)
 
-// Move metrics endpoint to metrics app
+// The actual /metrics endpoint for Prometheus to scrape
 metricsApp.get("/metrics", async (req, res) => {
     try {
         res.set("Content-Type", register.contentType)
@@ -107,6 +133,7 @@ if (process.env.NODE_ENV !== "test") {
     dbConnect()
 }
 
+// These must be at the end of all routes and middleware
 app.use(notFound)
 app.use(errorhandler)
 
