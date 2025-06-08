@@ -8,10 +8,9 @@ const validateMongoDbId = require("../config/MongodbId")
 const { sendEmail } = require("../config/emailCtrl")
 const nodemailer = require("nodemailer")
 const { default: mongoose } = require("mongoose")
-const { metrics } = require("../config/metricsConfig")
-const metricsMiddleware = require("../middlewares/metricsMiddleware")
+const { metrics } = require("../config/metricsConfig") 
 
-// const { Socket } = require("socket.io")
+
 const campsData = [
     {
         id: "AB",
@@ -200,13 +199,11 @@ const campsData = [
     },
 ]
 
-// Function to get a random city
 function getRandomCamp() {
     const randomIndex = Math.floor(Math.random() * campsData.length)
     return campsData[randomIndex]
 }
 
-//generate random number
 function generateRandomNumber() {
     return Math.floor(100000 + Math.random() * 900000)
 }
@@ -215,17 +212,22 @@ function generateRandomStateNumber() {
     return Math.floor(10000 + Math.random() * 90000)
 }
 
-const createUser = async (req, res, next) => {
+const createUser = asyncHandler(async (req, res, next) => {
+    const start = Date.now()
     const { matric, mobile, email } = req.body
     try {
+        const dbStart = Date.now()
         const findDetails = await User.findOne({
             matric: matric,
             mobile: mobile,
             email: email,
         })
+        metrics.dbQueryDuration.observe(
+            { query_type: "findOne", status: "success" },
+            (Date.now() - dbStart) / 1000
+        )
 
         if (!findDetails) {
-            // User with the provided details does not exist, so register the user
             const randomCamp = getRandomCamp()
             const newUser = {
                 ...req.body,
@@ -236,17 +238,38 @@ const createUser = async (req, res, next) => {
                 }/23A/${generateRandomStateNumber()}`,
                 CallUpNumber: `CORE/SERVE/${generateRandomNumber()}`,
                 PPA: "",
-            } // Add camp and statePostedTo to the user data
+            }
+            const createDbStart = Date.now()
             const registerNewUser = await User.create(newUser)
-            metrics.registrationCount.inc()
-            metrics.totalUsers.inc()
+            metrics.dbQueryDuration.observe(
+                { query_type: "create", status: "success" },
+                (Date.now() - createDbStart) / 1000
+            )
+
+            metrics.registrationCount.inc() // Increment registration count
+            metrics.totalUsers.inc() // Increment total users count
             res.status(201).json({
                 message: "User registered successfully",
                 user: registerNewUser,
             })
+            metrics.httpRequestDuration.observe(
+                {
+                    method: "POST",
+                    route: "/api/user/register",
+                    status_code: 201,
+                },
+                (Date.now() - start) / 1000
+            )
         } else {
-            // User with the provided details is already registered
             res.status(409).json({ error: "User Already Registered" })
+            metrics.httpRequestDuration.observe(
+                {
+                    method: "POST",
+                    route: "/api/user/register",
+                    status_code: 409,
+                },
+                (Date.now() - start) / 1000
+            )
         }
     } catch (err) {
         console.error("Error while registering user:", err)
@@ -255,32 +278,48 @@ const createUser = async (req, res, next) => {
             endpoint: "/api/user/register",
             error_type: err.message,
         })
+        metrics.httpRequestDuration.observe(
+            { method: "POST", route: "/api/user/register", status_code: 500 },
+            (Date.now() - start) / 1000
+        )
+        metrics.dbQueryDuration.observe(
+            { query_type: "create", status: "failure" },
+            (Date.now() - start) / 1000
+        ) // If DB error
     }
-}
+})
 
-//login user
 const loginUser = asyncHandler(async (req, res) => {
+    const start = Date.now()
     const { email, Password } = req.body
-    //check if user exits
+    const dbStart = Date.now()
     const findUser = await User.findOne({ email })
+    metrics.dbQueryDuration.observe(
+        { query_type: "findOne", status: "success" },
+        (Date.now() - dbStart) / 1000
+    )
+
     if (findUser && (await findUser.isPasswordMatched(Password))) {
         const refreshToken = await generateRefreshToken(findUser?._id)
-        metricsMiddleware.incrementLoginCount()
-        metrics.activeLogins.inc()
-        metrics.activeSessions.inc()
-        // eslint-disable-next-line no-unused-vars
+        metrics.activeLogins.inc() // Increment successful login count
+        metrics.activeSessions.inc() // Increment active sessions
+
+        const updateDbStart = Date.now()
         const updateuser = await User.findByIdAndUpdate(
             findUser.id,
-            {
-                refreshToken: refreshToken,
-            },
-            {
-                new: true,
-            }
+            { refreshToken: refreshToken },
+            { new: true }
         )
+        metrics.dbQueryDuration.observe(
+            { query_type: "findByIdAndUpdate", status: "success" },
+            (Date.now() - updateDbStart) / 1000
+        )
+
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
             maxAge: 72 * 60 * 60 * 1000,
+            secure: process.env.NODE_ENV === "production", // Add secure flag for production
+            sameSite: "Lax", // Recommended for security
         })
         res.json({
             _id: findUser?.id,
@@ -290,215 +329,366 @@ const loginUser = asyncHandler(async (req, res) => {
             mobile: findUser?.mobile,
             token: generateToken(findUser?._id),
         })
+        metrics.httpRequestDuration.observe(
+            { method: "POST", route: "/api/user/login", status_code: 200 },
+            (Date.now() - start) / 1000
+        )
     } else {
-        metrics.failedLogins.inc()
+        metrics.failedLogins.inc() // Increment failed login count
         metrics.apiErrors.inc({
             endpoint: "/api/user/login",
             error_type: "Invalid Credentials",
         })
-        metrics.apiErrors.inc({
-            endpoint: "/api/user/login",
-            error_type: "Failed Login Attempt",
-        })
-        return res.status(401).json({ error: "Invalid Credentials" })
-        
+        res.status(401).json({ error: "Invalid Credentials" })
+        metrics.httpRequestDuration.observe(
+            { method: "POST", route: "/api/user/login", status_code: 401 },
+            (Date.now() - start) / 1000
+        )
+        metrics.dbQueryDuration.observe(
+            { query_type: "findOne", status: "failure" },
+            (Date.now() - dbStart) / 1000
+        ) // If find fails or password mismatch
     }
 })
 
-//handle refresh token
 const handleRefreshToken = asyncHandler(async (req, res) => {
+    const start = Date.now()
     const cookie = req.cookies
     if (!cookie?.refreshToken) {
-        return res.status(400).json({ message: "No Refresh Token in Cookies" })
+        res.status(400).json({ message: "No Refresh Token in Cookies" })
+        metrics.httpRequestDuration.observe(
+            { method: "GET", route: "/api/user/refresh", status_code: 400 },
+            (Date.now() - start) / 1000
+        )
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/refresh",
+            error_type: "No Refresh Token",
+        })
+        return
     }
     const refreshToken = cookie.refreshToken
-    console.log(refreshToken)
+    // console.log(refreshToken) // Removed logging sensitive data
+    const dbStart = Date.now()
     const user = await User.findOne({ refreshToken })
-    if (!user) throw new Error("No Refresh Token present in db or not matched")
+    metrics.dbQueryDuration.observe(
+        { query_type: "findOne", status: "success" },
+        (Date.now() - dbStart) / 1000
+    )
+
+    if (!user) {
+        res.status(400).json({
+            message: "No Refresh Token present in db or not matched",
+        })
+        metrics.httpRequestDuration.observe(
+            { method: "GET", route: "/api/user/refresh", status_code: 400 },
+            (Date.now() - start) / 1000
+        )
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/refresh",
+            error_type: "Refresh Token Mismatch",
+        })
+        return
+    }
+
     jwt.verify(refreshToken, process.env.JWT_SECRET_TOKEN, (err, decoded) => {
         if (err || user.id !== decoded.id) {
-            throw new Error("There is something wrong")
+            res.status(401).json({
+                message: "Not Authorized, Please Login (Token Invalid/Expired)",
+            })
+            metrics.httpRequestDuration.observe(
+                { method: "GET", route: "/api/user/refresh", status_code: 401 },
+                (Date.now() - start) / 1000
+            )
+            metrics.apiErrors.inc({
+                endpoint: "/api/user/refresh",
+                error_type: "JWT Verification Failed",
+            })
+        } else {
+            const accessToken = generateToken(user?._id)
+            res.json({ accessToken })
+            metrics.httpRequestDuration.observe(
+                { method: "GET", route: "/api/user/refresh", status_code: 200 },
+                (Date.now() - start) / 1000
+            )
         }
-        const accessToken = generateToken(user?._id)
-        res.json({ accessToken })
     })
 })
 
-//logout user
 const logoutUser = asyncHandler(async (req, res) => {
+    const start = Date.now()
     const cookie = req.cookies
     if (!cookie?.refreshToken) {
-        return res.status(400).json({ error: "No Refresh Token in Cookies" })
+        res.status(400).json({ error: "No Refresh Token in Cookies" })
+        metrics.httpRequestDuration.observe(
+            { method: "GET", route: "/api/user/logout", status_code: 400 },
+            (Date.now() - start) / 1000
+        )
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/logout",
+            error_type: "No Refresh Token",
+        })
+        return
     }
 
     const refreshToken = cookie.refreshToken
+    const dbStart = Date.now()
     const user = await User.findOne({ refreshToken })
-    metrics.activeSessions.dec()
+    metrics.dbQueryDuration.observe(
+        { query_type: "findOne", status: "success" },
+        (Date.now() - dbStart) / 1000
+    )
+
+    metrics.activeSessions.dec() // Decrement active sessions
+
     if (!user) {
         res.clearCookie("refreshToken", {
             httpOnly: true,
-            secure: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "Lax",
         })
-        return res
-            .status(204)
-            .json({ message: "User not found, cookies cleared" })
+        res.status(204).json({ message: "User not found, cookies cleared" })
+        metrics.httpRequestDuration.observe(
+            { method: "GET", route: "/api/user/logout", status_code: 204 },
+            (Date.now() - start) / 1000
+        )
+        return
     }
 
+    const updateDbStart = Date.now()
     await User.findOneAndUpdate(
         { refreshToken: refreshToken },
-        {
-            refreshToken: "",
-        }
+        { refreshToken: "" }
+    )
+    metrics.dbQueryDuration.observe(
+        { query_type: "findOneAndUpdate", status: "success" },
+        (Date.now() - updateDbStart) / 1000
     )
 
     res.clearCookie("refreshToken", {
         httpOnly: true,
-        secure: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "Lax",
     })
 
-    return res.status(200).json({ message: "User logged out successfully" })
-    
+    res.status(200).json({ message: "User logged out successfully" })
+    metrics.httpRequestDuration.observe(
+        { method: "GET", route: "/api/user/logout", status_code: 200 },
+        (Date.now() - start) / 1000
+    )
 })
 
-//delete user
 const deleteUser = asyncHandler(async (req, res) => {
+    const start = Date.now()
     const { id } = req.params
     try {
+        validateMongoDbId(id) // Ensure ID is valid
+        const dbStart = Date.now()
         const deleteUser = await User.findByIdAndDelete(id)
-        if (!deleteUser) throw new Error("Unable To Delete Account")
-        return res.status(200).json({ message: "Account Deleted Succesfully" })
-        // res.json({
-        //     deleteUser,
-        // })
-    } catch ({ message }) {
-        return res.status(400).json({ message: message })
+        metrics.dbQueryDuration.observe(
+            { query_type: "findByIdAndDelete", status: "success" },
+            (Date.now() - dbStart) / 1000
+        )
+
+        if (!deleteUser) {
+            res.status(404).json({
+                message: "Unable To Delete Account, User Not Found",
+            })
+            metrics.httpRequestDuration.observe(
+                { method: "DELETE", route: "/api/user/:id", status_code: 404 },
+                (Date.now() - start) / 1000
+            )
+            return
+        }
+        metrics.totalUsers.dec() // Decrement total users count
+        res.status(200).json({ message: "Account Deleted Succesfully" })
+        metrics.httpRequestDuration.observe(
+            { method: "DELETE", route: "/api/user/:id", status_code: 200 },
+            (Date.now() - start) / 1000
+        )
+    } catch (err) {
+        console.error("Error deleting user:", err)
+        res.status(500).json({ message: err.message })
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/:id",
+            error_type: err.message,
+        })
+        metrics.httpRequestDuration.observe(
+            { method: "DELETE", route: "/api/user/:id", status_code: 500 },
+            (Date.now() - start) / 1000
+        )
+        metrics.dbQueryDuration.observe(
+            { query_type: "findByIdAndDelete", status: "failure" },
+            (Date.now() - start) / 1000
+        )
     }
 })
 
-// get user
 const getaUser = asyncHandler(async (req, res) => {
+    const start = Date.now()
     try {
         const userId = req.user.id
-        const start = Date.now()
+        const dbStart = Date.now()
         const user = await User.findById(userId)
-        const duration = (Date.now() - start) / 1000
-        metrics.httpRequestDuration.observe(
-            {
-                method: "GET",
-                route: "/api/user",
-                status_code: 200,
-            },
-            duration
+        metrics.dbQueryDuration.observe(
+            { query_type: "findById", status: "success" },
+            (Date.now() - dbStart) / 1000
         )
+
         if (!user) {
-            return res.status(404).json({ message: "User not Found" })
+            res.status(404).json({ message: "User not Found" })
+            metrics.httpRequestDuration.observe(
+                {
+                    method: "GET",
+                    route: "/api/user/user-data",
+                    status_code: 404,
+                },
+                (Date.now() - start) / 1000
+            )
+            return
         }
-        // console.log("User Data:", user) // Log the user data
         res.json(user)
+        metrics.httpRequestDuration.observe(
+            { method: "GET", route: "/api/user/user-data", status_code: 200 },
+            (Date.now() - start) / 1000
+        )
     } catch (err) {
+        console.error("Error fetching user data:", err)
         metrics.apiErrors.inc({
-            endpoint: "/api/user",
+            endpoint: "/api/user/user-data",
             error_type: err.message,
         })
         res.status(500).json({ message: err.message })
+        metrics.httpRequestDuration.observe(
+            { method: "GET", route: "/api/user/user-data", status_code: 500 },
+            (Date.now() - start) / 1000
+        )
+        metrics.dbQueryDuration.observe(
+            { query_type: "findById", status: "failure" },
+            (Date.now() - start) / 1000
+        )
     }
 })
 
-// const userData = asyncHandler(async (req, res) => {
-//     const { id } = req.params
-
-//     // Validate the MongoDB ObjectId
-//     try {
-//         validateMongoDbId(id)
-//     } catch (error) {
-//         return res.status(400).json({ message: error.message }) // Return a 400 Bad Request on validation failure
-//     }
-
-//     try {
-//         const user = await User.findById(id)
-
-//         if (!user) {
-//             return res.status(404).json({ message: "User not found" })
-//         }
-
-//         console.log("User Data:", user) // Log the user data
-//         res.json({ user })
-//     } catch (error) {
-//         console.error("Error while querying user:", error)
-//         res.status(500).json({ message: "Internal server error" })
-//     }
-// })
-
 const userData = asyncHandler(async (req, res) => {
+    const start = Date.now()
     const { identifier } = req.params
     try {
         let user
+        const dbStart = Date.now()
         if (mongoose.Types.ObjectId.isValid(identifier)) {
             user = await User.findById(identifier)
+            metrics.dbQueryDuration.observe(
+                { query_type: "findById", status: "success" },
+                (Date.now() - dbStart) / 1000
+            )
         } else {
             user = await User.findOne({ email: identifier })
+            metrics.dbQueryDuration.observe(
+                { query_type: "findOne", status: "success" },
+                (Date.now() - dbStart) / 1000
+            )
         }
 
         if (!user) {
-            return res.status(404).json({ message: "User not found" })
+            res.status(404).json({ message: "User not found" })
+            metrics.httpRequestDuration.observe(
+                {
+                    method: "GET",
+                    route: "/api/user/:identifier",
+                    status_code: 404,
+                },
+                (Date.now() - start) / 1000
+            )
+            return
         }
-        console.log("User Data:", user) // Log the user data
+        // console.log("User Data:", user) // Removed sensitive logging
         res.json({ user })
+        metrics.httpRequestDuration.observe(
+            { method: "GET", route: "/api/user/:identifier", status_code: 200 },
+            (Date.now() - start) / 1000
+        )
     } catch (error) {
         console.error("Error while querying user:", error)
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/:identifier",
+            error_type: error.message,
+        })
         res.status(500).json({ message: "Internal server error" })
+        metrics.httpRequestDuration.observe(
+            { method: "GET", route: "/api/user/:identifier", status_code: 500 },
+            (Date.now() - start) / 1000
+        )
+        metrics.dbQueryDuration.observe(
+            { query_type: "lookup", status: "failure" },
+            (Date.now() - start) / 1000
+        )
     }
 })
-// const userData = asyncHandler(async (req, res) => {
-//     const { email } = req.params
-//     try {
-//         const user = await User.findOne({ email })
 
-//         if (!user) {
-//             return res.status(404).json({ message: "User not found" })
-//         }
-
-//         console.log("User Data:", user) // Log the user data
-//         res.json({ user })
-//     } catch (error) {
-//         console.error("Error while querying user:", error)
-//         res.status(500).json({ message: "Internal server error" })
-//     }
-// })
-
-// admin login
 const loginAdmin = asyncHandler(async (req, res, next) => {
+    const start = Date.now()
     const { email, Password } = req.body
 
     try {
-        // check if user exists or not
+        const dbStart = Date.now()
         const findAdmin = await User.findOne({ email })
+        metrics.dbQueryDuration.observe(
+            { query_type: "findOne", status: "success" },
+            (Date.now() - dbStart) / 1000
+        )
 
         if (!findAdmin) {
-            return res.status(401).json({ message: "Invalid Credentials" })
+            res.status(401).json({ message: "Invalid Credentials" })
+            metrics.httpRequestDuration.observe(
+                {
+                    method: "POST",
+                    route: "/api/user/admin-login",
+                    status_code: 401,
+                },
+                (Date.now() - start) / 1000
+            )
+            metrics.failedLogins.inc({ type: "admin" }) // Optionally track admin failed logins
+            return
         }
 
         if (findAdmin.role !== "admin") {
             metrics.apiErrors.inc({
-                endpoint: "/api/admin/login",
+                endpoint: "/api/user/admin-login",
                 error_type: "Unauthorized Admin Access",
             })
-            return res.status(403).json({ message: "You are not an Admin" })
+            res.status(403).json({ message: "You are not an Admin" })
+            metrics.httpRequestDuration.observe(
+                {
+                    method: "POST",
+                    route: "/api/user/admin-login",
+                    status_code: 403,
+                },
+                (Date.now() - start) / 1000
+            )
+            return
         }
 
         if (await findAdmin.isPasswordMatched(Password)) {
             const refreshToken = await generateRefreshToken(findAdmin._id)
+            metrics.activeLogins.inc({ type: "admin" }) // Increment admin successful login count
+            metrics.activeSessions.inc() // Increment active sessions for admin
+
+            const updateDbStart = Date.now()
             await User.findByIdAndUpdate(
                 findAdmin.id,
-                {
-                    refreshToken: refreshToken,
-                },
+                { refreshToken: refreshToken },
                 { new: true }
+            )
+            metrics.dbQueryDuration.observe(
+                { query_type: "findByIdAndUpdate", status: "success" },
+                (Date.now() - updateDbStart) / 1000
             )
 
             res.cookie("refreshToken", refreshToken, {
                 httpOnly: true,
                 maxAge: 72 * 60 * 60 * 1000,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "Lax",
             })
 
             res.json({
@@ -509,107 +699,265 @@ const loginAdmin = asyncHandler(async (req, res, next) => {
                 mobile: findAdmin.mobile,
                 token: generateToken(findAdmin._id),
             })
+            metrics.httpRequestDuration.observe(
+                {
+                    method: "POST",
+                    route: "/api/user/admin-login",
+                    status_code: 200,
+                },
+                (Date.now() - start) / 1000
+            )
         } else {
-            return res.status(401).json({ message: "Invalid Credentials" })
+            res.status(401).json({ message: "Invalid Credentials" })
+            metrics.httpRequestDuration.observe(
+                {
+                    method: "POST",
+                    route: "/api/user/admin-login",
+                    status_code: 401,
+                },
+                (Date.now() - start) / 1000
+            )
+            metrics.failedLogins.inc({ type: "admin" }) // Increment admin failed logins
         }
     } catch (error) {
         res.status(500).json({ message: "An error occurred" })
         metrics.apiErrors.inc({
-            endpoint: "/api/admin/login",
+            endpoint: "/api/user/admin-login",
             error_type: error.message,
         })
+        metrics.httpRequestDuration.observe(
+            {
+                method: "POST",
+                route: "/api/user/admin-login",
+                status_code: 500,
+            },
+            (Date.now() - start) / 1000
+        )
+        metrics.dbQueryDuration.observe(
+            { query_type: "loginAdmin", status: "failure" },
+            (Date.now() - start) / 1000
+        ) // General db error for admin login
     }
 })
 
 const getallUser = asyncHandler(async (req, res) => {
+    const start = Date.now()
     try {
+        const dbStart = Date.now()
         const getUsers = await User.find()
+        metrics.dbQueryDuration.observe(
+            { query_type: "find", status: "success" },
+            (Date.now() - dbStart) / 1000
+        )
+
         res.json(getUsers)
+        metrics.httpRequestDuration.observe(
+            { method: "GET", route: "/api/user/all-Users", status_code: 200 },
+            (Date.now() - start) / 1000
+        )
     } catch (error) {
-        throw new Error(error)
+        console.error("Error getting all users:", error)
+        res.status(500).json({ message: error.message })
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/all-Users",
+            error_type: error.message,
+        })
+        metrics.httpRequestDuration.observe(
+            { method: "GET", route: "/api/user/all-Users", status_code: 500 },
+            (Date.now() - start) / 1000
+        )
+        metrics.dbQueryDuration.observe(
+            { query_type: "find", status: "failure" },
+            (Date.now() - start) / 1000
+        )
     }
 })
 
 const updateUser = asyncHandler(async (req, res) => {
+    const start = Date.now()
     const { email } = req.params
     const updates = req.body
 
-    User.findOneAndUpdate({ email }, updates, { new: true })
-        .then(() =>
-            res
-                .status(200)
-                .json({ message: "User details updated successfully" })
-        )
-
-        .catch((err) =>
-            res
-                .status(500)
-                .json({ message: "Failed to update user details", error: err })
-        )
-})
-
-//update Password
-const updatePassword = asyncHandler(async (req, res) => {
     try {
-        const { _id } = req.user
-        const { currentPassword, Password } = req.body // get also the current password from request body
-        metrics.userActivityMonitor.inc({
-            activity_type: "password_update",
-            user_role: "user",
+        const dbStart = Date.now()
+        const updatedUser = await User.findOneAndUpdate({ email }, updates, {
+            new: true,
         })
-        validateMongoDbId(_id) // I assume this function validates the MongoDB ObjectId
+        metrics.dbQueryDuration.observe(
+            { query_type: "findOneAndUpdate", status: "success" },
+            (Date.now() - dbStart) / 1000
+        )
 
-        const user = await User.findById(_id)
-
-        if (!user) {
-            return res.status(404).json({ message: "User not found" })
+        if (!updatedUser) {
+            res.status(404).json({ message: "User not found for update" })
+            metrics.httpRequestDuration.observe(
+                { method: "PUT", route: "/api/user/:email", status_code: 404 },
+                (Date.now() - start) / 1000
+            )
+            return
         }
 
-        // Check if current password is correct
+        res.status(200).json({
+            message: "User details updated successfully",
+            user: updatedUser,
+        })
+        metrics.httpRequestDuration.observe(
+            { method: "PUT", route: "/api/user/:email", status_code: 200 },
+            (Date.now() - start) / 1000
+        )
+    } catch (err) {
+        console.error("Error updating user:", err)
+        res.status(500).json({
+            message: "Failed to update user details",
+            error: err.message,
+        })
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/:email",
+            error_type: err.message,
+        })
+        metrics.httpRequestDuration.observe(
+            { method: "PUT", route: "/api/user/:email", status_code: 500 },
+            (Date.now() - start) / 1000
+        )
+        metrics.dbQueryDuration.observe(
+            { query_type: "findOneAndUpdate", status: "failure" },
+            (Date.now() - start) / 1000
+        )
+    }
+})
+
+const updatePassword = asyncHandler(async (req, res) => {
+    const start = Date.now()
+    try {
+        const { _id } = req.user
+        const { currentPassword, Password } = req.body
+
+        validateMongoDbId(_id)
+
+        const dbFindStart = Date.now()
+        const user = await User.findById(_id)
+        metrics.dbQueryDuration.observe(
+            { query_type: "findById", status: "success" },
+            (Date.now() - dbFindStart) / 1000
+        )
+
+        if (!user) {
+            res.status(404).json({ message: "User not found" })
+            metrics.httpRequestDuration.observe(
+                {
+                    method: "PUT",
+                    route: "/api/user/password",
+                    status_code: 404,
+                },
+                (Date.now() - start) / 1000
+            )
+            return
+        }
+
         if (!(await user.isPasswordMatched(currentPassword))) {
-            return res
-                .status(401)
-                .json({ message: "Current password is incorrect" })
+            res.status(401).json({ message: "Current password is incorrect" })
+            metrics.httpRequestDuration.observe(
+                {
+                    method: "PUT",
+                    route: "/api/user/password",
+                    status_code: 401,
+                },
+                (Date.now() - start) / 1000
+            )
+            metrics.apiErrors.inc({
+                endpoint: "/api/user/password",
+                error_type: "Incorrect Current Password",
+            })
+            return
         }
 
         if (!Password || currentPassword === Password) {
-            return res.status(400).json({
+            res.status(400).json({
                 message:
                     "Invalid password. New password is required and must be different from current password.",
             })
+            metrics.httpRequestDuration.observe(
+                {
+                    method: "PUT",
+                    route: "/api/user/password",
+                    status_code: 400,
+                },
+                (Date.now() - start) / 1000
+            )
+            metrics.apiErrors.inc({
+                endpoint: "/api/user/password",
+                error_type: "Invalid New Password",
+            })
+            return
         }
 
-        user.Password = Password // change user password
+        user.Password = Password
+        const dbSaveStart = Date.now()
         const updatedUser = await user.save()
+        metrics.dbQueryDuration.observe(
+            { query_type: "save", status: "success" },
+            (Date.now() - dbSaveStart) / 1000
+        )
+        metrics.passwordUpdates.inc() // Increment password updates count
 
         res.json({
             message: "Password updated successfully",
             user: updatedUser,
         })
+        metrics.httpRequestDuration.observe(
+            { method: "PUT", route: "/api/user/password", status_code: 200 },
+            (Date.now() - start) / 1000
+        )
     } catch (error) {
-        console.error(error)
+        console.error("Error updating password:", error)
         res.status(500).json({ message: "Server error" })
         metrics.apiErrors.inc({
             endpoint: "/api/user/password",
             error_type: error.message,
         })
+        metrics.httpRequestDuration.observe(
+            { method: "PUT", route: "/api/user/password", status_code: 500 },
+            (Date.now() - start) / 1000
+        )
+        metrics.dbQueryDuration.observe(
+            { query_type: "updatePassword", status: "failure" },
+            (Date.now() - start) / 1000
+        )
     }
 })
 
 const forgotPasswordToken = asyncHandler(async (req, res) => {
+    const start = Date.now()
     const { email } = req.body
 
     try {
+        const dbFindStart = Date.now()
         const user = await User.findOne({ email })
+        metrics.dbQueryDuration.observe(
+            { query_type: "findOne", status: "success" },
+            (Date.now() - dbFindStart) / 1000
+        )
 
         if (!user) {
-            return res
-                .status(404)
-                .json({ error: "User not found with this email" })
+            res.status(404).json({ error: "User not found with this email" })
+            metrics.httpRequestDuration.observe(
+                {
+                    method: "POST",
+                    route: "/api/user/forgot-password-token",
+                    status_code: 404,
+                },
+                (Date.now() - start) / 1000
+            )
+            return
         }
 
         const token = await user.createPasswordResetToken()
+        const dbSaveStart = Date.now()
         await user.save()
+        metrics.dbQueryDuration.observe(
+            { query_type: "save", status: "success" },
+            (Date.now() - dbSaveStart) / 1000
+        )
 
         const resetURL = `<!DOCTYPE html>
 <html lang="en">
@@ -672,7 +1020,7 @@ const forgotPasswordToken = asyncHandler(async (req, res) => {
         <p class="footer">Thank you!</p>
     </div>
 </body>
-                           </html>`
+</html>`
 
         const data = {
             to: email,
@@ -686,10 +1034,35 @@ const forgotPasswordToken = asyncHandler(async (req, res) => {
         res.status(200).json({
             successMessage: "Password reset token sent successfully",
         })
+        metrics.httpRequestDuration.observe(
+            {
+                method: "POST",
+                route: "/api/user/forgot-password-token",
+                status_code: 200,
+            },
+            (Date.now() - start) / 1000
+        )
     } catch (error) {
+        console.error("Error sending forgot password token:", error)
         res.status(500).json({
             error: "An error occurred while processing the request",
         })
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/forgot-password-token",
+            error_type: error.message,
+        })
+        metrics.httpRequestDuration.observe(
+            {
+                method: "POST",
+                route: "/api/user/forgot-password-token",
+                status_code: 500,
+            },
+            (Date.now() - start) / 1000
+        )
+        metrics.dbQueryDuration.observe(
+            { query_type: "forgotPasswordToken", status: "failure" },
+            (Date.now() - start) / 1000
+        )
     }
 })
 
@@ -707,6 +1080,7 @@ const transporter = nodemailer.createTransport({
 })
 
 const correctionMail = asyncHandler(async (req, res) => {
+    const start = Date.now()
     const { email, Correction, CallUpNumber, FirstName, LastName, ID } =
         req.body
 
@@ -764,24 +1138,37 @@ const correctionMail = asyncHandler(async (req, res) => {
         <p class="message">${LastName}</p>
         <h2 class="message">Call up Number:</h2>
         <p class="message">${CallUpNumber}</p>
-         <h2 class="message">User ID</h2>
+           <h2 class="message">User ID</h2>
         <p class="message">${ID}</p>
     </div>
 </body>
-                  </html>`,
+</html>`,
         }
 
         const info = await transporter.sendMail(mailOptions)
 
         console.log("Email sent: " + info.response)
         res.status(200).json({ message: "Your Response has Been Recorded!" })
+        metrics.httpRequestDuration.observe(
+            { method: "POST", route: "/api/user/send-mail", status_code: 200 },
+            (Date.now() - start) / 1000
+        )
     } catch (error) {
         console.error("Error sending email:", error)
         res.status(500).json({ message: "Email could not be sent." })
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/send-mail",
+            error_type: error.message,
+        })
+        metrics.httpRequestDuration.observe(
+            { method: "POST", route: "/api/user/send-mail", status_code: 500 },
+            (Date.now() - start) / 1000
+        )
     }
 })
 
 const resetPassword = asyncHandler(async (req, res) => {
+    const start = Date.Now()
     try {
         const { Password } = req.body
         const { token } = req.params
@@ -789,28 +1176,74 @@ const resetPassword = asyncHandler(async (req, res) => {
             .createHash("sha256")
             .update(token)
             .digest("hex")
+
+        const dbFindStart = Date.now()
         const user = await User.findOne({
             PasswordResetToken: hashedToken,
             PasswordResetExpires: { $gt: Date.now() },
         })
+        metrics.dbQueryDuration.observe(
+            { query_type: "findOne", status: "success" },
+            (Date.now() - dbFindStart) / 1000
+        )
+
         if (!user) {
-            return res
-                .status(400)
-                .json({ success: false, message: "Invalid or expired token" })
+            res.status(400).json({
+                success: false,
+                message: "Invalid or expired token",
+            })
+            metrics.httpRequestDuration.observe(
+                {
+                    method: "POST",
+                    route: "/api/user/reset-password/:token",
+                    status_code: 400,
+                },
+                (Date.now() - start) / 1000
+            )
+            return
         }
 
         user.Password = Password
         user.PasswordResetToken = undefined
         user.PasswordResetExpires = undefined
+        const dbSaveStart = Date.now()
         await user.save()
+        metrics.dbQueryDuration.observe(
+            { query_type: "save", status: "success" },
+            (Date.now() - dbSaveStart) / 1000
+        )
 
         res.json({ success: true, message: "Password successfully reset" })
+        metrics.httpRequestDuration.observe(
+            {
+                method: "POST",
+                route: "/api/user/reset-password/:token",
+                status_code: 200,
+            },
+            (Date.now() - start) / 1000
+        )
     } catch (error) {
         console.error("Error resetting password:", error)
         res.status(500).json({
             success: false,
             message: "Failed to reset password",
         })
+        metrics.apiErrors.inc({
+            endpoint: "/api/user/reset-password/:token",
+            error_type: error.message,
+        })
+        metrics.httpRequestDuration.observe(
+            {
+                method: "POST",
+                route: "/api/user/reset-password/:token",
+                status_code: 500,
+            },
+            (Date.now() - start) / 1000
+        )
+        metrics.dbQueryDuration.observe(
+            { query_type: "resetPassword", status: "failure" },
+            (Date.now() - start) / 1000
+        )
     }
 })
 
