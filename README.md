@@ -1,79 +1,108 @@
-# Getting Started with Create React App
+# Core Serve Backend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This repository contains the **Core Serve Backend** service, which powers the backend logic, API endpoints, and core business workflows for the Core Serve platform. It is designed to work in harmony with the [Core Serve Frontend](https://github.com/teejayade2244/core-serve-frontend) (user interface) and [Core Serve GitOps](https://github.com/teejayade2244/core-serve-gitops) (infrastructure automation and CI/CD).
 
-## Available Scripts
+## Overview
 
-In the project directory, you can run:
+- **Core Serve Backend**: Provides secure and scalable RESTful APIs, authentication, business logic, and integrations.
+- **Core Serve Frontend**: The user-facing web application, which communicates with this backend service.
+- **Core Serve GitOps**: Automates deployments and manages infrastructure using GitOps principles.
 
-### `yarn start`
+## Features
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- RESTful API endpoints for all core platform functionality
+- User authentication and authorization
+- Integration with GitOps for deployment automation
+- Containerized with Docker for easy deployment
+- CI/CD pipeline configuration with Jenkins
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Project Structure
 
-### `yarn test`
+```
+core-serve-backend/
+├── src/                  # Source code
+├── tests/                # Automated tests
+├── docs/                 # Documentation
+├── Dockerfile            # Containerization
+├── Jenkinsfile           # CI/CD pipeline configuration
+├── .env.example          # Environment variable example
+└── README.md
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Getting Started
 
-### `yarn build`
+### Prerequisites
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- [Node.js](https://nodejs.org/) (or relevant backend runtime)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- [Docker](https://www.docker.com/) (for containerization)
+- [Jenkins](https://www.jenkins.io/) (for CI/CD, optional)
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Installation
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Clone the repository:
+```bash
+git clone https://github.com/teejayade2244/core-serve-backend.git
+cd core-serve-backend
+```
 
-### `yarn eject`
+Install dependencies:
+```bash
+npm install
+# or
+yarn install
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Configuration
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Copy the example environment file and set your environment variables:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```bash
+cp .env.example .env
+```
+Edit `.env` as needed to fit your environment.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Running the Backend
 
-## Learn More
+To start the development server:
+```bash
+npm start
+# or
+yarn start
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+#### Using Docker
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Build and run the Docker container:
+```bash
+docker build -t core-serve-backend .
+docker run --env-file .env -p 3000:3000 core-serve-backend
+```
 
-### Code Splitting
+#### Using Jenkins
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+This repository includes a `Jenkinsfile` for automated builds and deployments. Integrate with your Jenkins server to enable pipeline automation for testing, building, and deploying the backend.
 
-### Analyzing the Bundle Size
+![Screenshot 2025-06-08 181505](https://github.com/user-attachments/assets/ee459653-c0f9-4861-b25a-1b1f0f7036ba)
+![Screenshot 2025-06-08 175208](https://github.com/user-attachments/assets/4ddf62e6-05ec-44a2-9875-a5c50e912a54)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## API Documentation
 
-### Making a Progressive Web App
+API specification and usage examples can be found in the [docs](docs/) directory (or will be added soon).
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## Related Repositories
 
-### Advanced Configuration
+- [Core Serve Frontend](https://github.com/teejayade2244/core-serve-frontend)
+- [Core Serve GitOps](https://github.com/teejayade2244/GitOps-Terraform-Iac-and-Kubernetes-manifests-Core-Serve-App)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## Contributing
 
-### Deployment
+Contributions are welcome! Please open issues or submit pull requests.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## License
 
-### `yarn build` fails to minify
+This project is licensed under the [MIT License](LICENSE).
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+---
 
-
-   <!-- "scripts": {
-        "start": "react-scripts start",
-        "build": "react-scripts build",
-        "test": "react-scripts test",
-        "eject": "react-scripts eject",
-        "server": "nodemon index.js"
-    }, -->
+_The Core Serve Backend is a critical component of the Core Serve ecosystem, enabling reliable business logic and deployment automation._
